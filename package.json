@@ -1,6 +1,6 @@
 {
   "name": "@alcops/core",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "ALCops core library and CLI - TFM detection and analyzer installation for Business Central",
   "license": "MIT",
   "author": {
@@ -21,7 +21,7 @@
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "bundle": "node esbuild.config.mjs",
+    "bundle": "node esbuild.config.mjs && tsc -p tsconfig.json --emitDeclarationOnly --declaration --outDir dist --rootDir src",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "eslint src/",
