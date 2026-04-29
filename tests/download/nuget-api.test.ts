@@ -23,7 +23,7 @@ import {
     resolveVersion,
     getDownloadUrl,
     downloadPackage,
-} from '../../src/install/nuget-api';
+} from '../../src/download/nuget-api';
 
 const mockQueryRegistration = queryNuGetRegistration as ReturnType<typeof vi.fn>;
 

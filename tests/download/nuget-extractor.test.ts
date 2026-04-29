@@ -4,7 +4,7 @@ import * as path from 'path';
 import * as os from 'os';
 import { zipSync } from 'fflate';
 
-import { extractAnalyzers, findMatchingTfmFolder } from '../../src/install/nuget-extractor';
+import { extractAnalyzers, findMatchingTfmFolder } from '../../src/download/nuget-extractor';
 
 let tmpDir: string;
 
