@@ -7,6 +7,12 @@ export { detectFromCompilerPath, findDllFiles } from './detectors/compiler-path'
 // Download
 export { resolveVersion, downloadPackage, getDownloadUrl } from './download/nuget-api';
 export { extractAnalyzers, findMatchingTfmFolder } from './download/nuget-extractor';
+export { executeDownload } from './download/download-command';
+export type { DownloadOptions, DownloadResult } from './download/download-command';
+
+// Detection source resolution
+export { resolveDetectSource, resolveVersionSource } from './resolve-detect-source';
+export type { DetectSource, ResolvedDetectSource } from './resolve-detect-source';
 
 // Shared utilities
 export { getUserAgent } from './user-agent';
