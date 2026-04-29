@@ -4,7 +4,7 @@
 [![npm](https://img.shields.io/npm/v/@alcops/core)](https://www.npmjs.com/package/@alcops/core)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 
-Detect the Target Framework Moniker (TFM) used by Business Central, so you can build AL extensions with the correct analyzer version. Designed for CI/CD pipelines.
+Automatically detect the Target Framework Moniker (TFM) for Business Central and download the matching code analyzer files. Build AL extensions with the right analyzers, without manual version juggling. Designed for CI/CD pipelines.
 
 ## Features
 
