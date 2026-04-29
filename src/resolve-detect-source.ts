@@ -33,9 +33,10 @@ export async function resolveDetectSource(
         return { source: 'bc-artifact', input };
     }
 
-    if (isChannelKeyword(input)) {
-        logger.debug(`Input classified as channel keyword → nuget-devtools`);
-        return { source: 'nuget-devtools', input };
+    const channel = resolveChannelKeyword(input);
+    if (channel) {
+        logger.debug(`Input '${input}' classified as channel '${channel}' → nuget-devtools`);
+        return { source: 'nuget-devtools', input: channel };
     }
 
     // For version strings, resolve via API calls
@@ -98,8 +99,16 @@ function isUrl(input: string): boolean {
     return input.startsWith('http://') || input.startsWith('https://');
 }
 
-const CHANNEL_KEYWORDS = new Set(['latest', 'prerelease', 'current']);
+export const CHANNEL_ALIASES: Record<string, string> = {
+    'latest': 'latest',
+    'current': 'latest',
+    'stable': 'latest',
+    'preview': 'preview',
+    'next': 'preview',
+    'prerelease': 'preview',
+    'beta': 'preview',
+};
 
-function isChannelKeyword(input: string): boolean {
-    return CHANNEL_KEYWORDS.has(input.toLowerCase());
+function resolveChannelKeyword(input: string): string | undefined {
+    return CHANNEL_ALIASES[input.toLowerCase()];
 }

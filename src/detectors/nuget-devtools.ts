@@ -48,7 +48,7 @@ function fetchJson(url: string, maxRedirects = 5): Promise<Record<string, unknow
  * Resolve the DevTools version: 'latest', 'prerelease', or specific.
  */
 export async function resolveDevToolsVersion(requested: string, logger: Logger = nullLogger): Promise<string> {
-    if (requested !== 'latest' && requested !== 'prerelease') {
+    if (requested !== 'latest' && requested !== 'preview') {
         logger.info(`Using specified DevTools version: ${requested}`);
         return requested;
     }
