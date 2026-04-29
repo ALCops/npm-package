@@ -3,8 +3,8 @@ import { detectFromBCArtifact } from './detectors/bc-artifact';
 import { detectFromMarketplace } from './detectors/marketplace';
 import { detectFromNuGetDevTools } from './detectors/nuget-devtools';
 import { detectFromCompilerPath } from './detectors/compiler-path';
-
-const logger = createConsoleLogger();
+import { executeDownload } from './download/download-command';
+import type { DetectSource } from './resolve-detect-source';
 
 function usage(): void {
     process.stderr.write(`
@@ -15,9 +15,18 @@ Commands:
   detect-tfm marketplace [channel]     Detect TFM from VS Marketplace (default: current)
   detect-tfm nuget-devtools [version]  Detect TFM from NuGet DevTools (default: latest)
   detect-tfm compiler-path <dir>       Detect TFM from a local compiler directory
+  download [source] --output <dir>     Download and extract ALCops analyzers
 
-Options:
-  --help    Show this help message
+Download options:
+  --output <dir>                       Required. Directory to extract analyzer DLLs into
+  --tfm <tfm>                          Explicit TFM (skips auto-detection)
+  --version <ver>                      ALCops package version (default: latest)
+  --detect-from <source>               Force detection source (bc-artifact, marketplace,
+                                         nuget-devtools, compiler-path)
+
+Global options:
+  --verbose   Enable debug-level logging
+  --help      Show this help message
 
 Output: JSON on stdout, logs on stderr.
 `);
@@ -25,16 +34,19 @@ Output: JSON on stdout, logs on stderr.
 
 async function main(): Promise<void> {
     const args = process.argv.slice(2);
+    const verbose = args.includes('--verbose');
+    const filteredArgs = args.filter((a) => a !== '--verbose');
+    const logger = createConsoleLogger(verbose);
 
-    if (args.length === 0 || args.includes('--help')) {
+    if (filteredArgs.length === 0 || filteredArgs.includes('--help')) {
         usage();
-        process.exit(args.includes('--help') ? 0 : 1);
+        process.exit(filteredArgs.includes('--help') ? 0 : 1);
     }
 
-    const command = args[0];
+    const command = filteredArgs[0];
 
     if (command === 'detect-tfm') {
-        const subcommand = args[1];
+        const subcommand = filteredArgs[1];
         if (!subcommand) {
             process.stderr.write('Error: detect-tfm requires a subcommand\n');
             usage();
@@ -44,7 +56,7 @@ async function main(): Promise<void> {
         let result;
         switch (subcommand) {
             case 'bc-artifact': {
-                const url = args[2];
+                const url = filteredArgs[2];
                 if (!url) {
                     process.stderr.write('Error: bc-artifact requires a URL argument\n');
                     process.exit(1);
@@ -53,17 +65,17 @@ async function main(): Promise<void> {
                 break;
             }
             case 'marketplace': {
-                const channel = args[2] || 'current';
+                const channel = filteredArgs[2] || 'current';
                 result = await detectFromMarketplace(channel, logger);
                 break;
             }
             case 'nuget-devtools': {
-                const version = args[2] || 'latest';
+                const version = filteredArgs[2] || 'latest';
                 result = await detectFromNuGetDevTools(version, logger);
                 break;
             }
             case 'compiler-path': {
-                const dir = args[2];
+                const dir = filteredArgs[2];
                 if (!dir) {
                     process.stderr.write('Error: compiler-path requires a directory argument\n');
                     process.exit(1);
@@ -78,11 +90,58 @@ async function main(): Promise<void> {
         }
 
         process.stdout.write(JSON.stringify(result, null, 2) + '\n');
+    } else if (command === 'download') {
+        const downloadArgs = filteredArgs.slice(1);
+        const outputDir = getFlagValue(downloadArgs, '--output');
+        const tfm = getFlagValue(downloadArgs, '--tfm');
+        const version = getFlagValue(downloadArgs, '--version');
+        const detectFrom = getFlagValue(downloadArgs, '--detect-from') as DetectSource | undefined;
+
+        if (!outputDir) {
+            process.stderr.write('Error: --output <dir> is required for the download command\n');
+            usage();
+            process.exit(1);
+        }
+
+        if (detectFrom && !isValidDetectSource(detectFrom)) {
+            process.stderr.write(
+                `Error: Invalid --detect-from value: ${detectFrom}. ` +
+                `Valid values: bc-artifact, marketplace, nuget-devtools, compiler-path\n`,
+            );
+            process.exit(1);
+        }
+
+        // Positional arg is the source (first arg that doesn't start with --)
+        const source = downloadArgs.find((a) => !a.startsWith('--') && !isFlagValue(downloadArgs, a));
+
+        const result = await executeDownload(
+            { source, tfm, version, detectFrom, outputDir },
+            logger,
+        );
+
+        process.stdout.write(JSON.stringify(result, null, 2) + '\n');
     } else {
         process.stderr.write(`Error: Unknown command: ${command}\n`);
         usage();
         process.exit(1);
     }
+}
+
+function getFlagValue(args: string[], flag: string): string | undefined {
+    const idx = args.indexOf(flag);
+    if (idx === -1 || idx + 1 >= args.length) return undefined;
+    return args[idx + 1];
+}
+
+function isFlagValue(args: string[], value: string): boolean {
+    const idx = args.indexOf(value);
+    return idx > 0 && args[idx - 1].startsWith('--');
+}
+
+const VALID_DETECT_SOURCES = new Set(['bc-artifact', 'marketplace', 'nuget-devtools', 'compiler-path']);
+
+function isValidDetectSource(value: string): value is DetectSource {
+    return VALID_DETECT_SOURCES.has(value);
 }
 
 main().catch((err) => {

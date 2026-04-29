@@ -13,6 +13,7 @@ Automatically detect the Target Framework Moniker (TFM) for Business Central and
   - **VS Marketplace** (the AL Language extension)
   - **NuGet DevTools** (Microsoft's AL development tools package)
   - **Local compiler path** (a directory containing the AL compiler DLLs)
+- **Download and extract** ALCops analyzer DLLs for a detected TFM
 - JSON output on stdout, logs on stderr (pipe-friendly)
 - Zero configuration required
 - Usable as a CLI or as a Node.js library
@@ -41,9 +42,18 @@ Commands:
   detect-tfm marketplace [channel]     Detect TFM from VS Marketplace (default: current)
   detect-tfm nuget-devtools [version]  Detect TFM from NuGet DevTools (default: latest)
   detect-tfm compiler-path <dir>       Detect TFM from a local compiler directory
+  download [source] --output <dir>     Download and extract ALCops analyzers
 
-Options:
-  --help    Show this help message
+Download options:
+  --output <dir>                       Required. Directory to extract analyzer DLLs into
+  --tfm <tfm>                          Explicit TFM (skips auto-detection)
+  --version <ver>                      ALCops package version (default: latest)
+  --detect-from <source>               Force detection source (bc-artifact, marketplace,
+                                         nuget-devtools, compiler-path)
+
+Global options:
+  --verbose   Enable debug-level logging
+  --help      Show this help message
 ```
 
 ### Examples
@@ -70,6 +80,65 @@ Detect from a local compiler directory:
 
 ```bash
 alcops detect-tfm compiler-path ./path/to/compiler
+```
+
+### Download Command
+
+The `download` command combines TFM detection with analyzer extraction in a single step.
+
+Download analyzers with auto-detected TFM from the latest NuGet DevTools:
+
+```bash
+alcops download latest --output ./analyzers
+```
+
+Download analyzers with auto-detected TFM from a BC artifact URL:
+
+```bash
+alcops download "https://bcartifacts.azureedge.net/sandbox/26.0.12345.0/us" --output ./analyzers
+```
+
+Download analyzers with auto-detected TFM from a local compiler directory:
+
+```bash
+alcops download ./path/to/compiler --output ./analyzers
+```
+
+Download analyzers with an explicit TFM (skips detection):
+
+```bash
+alcops download --tfm net8.0 --output ./analyzers
+```
+
+Download a specific ALCops version:
+
+```bash
+alcops download latest --output ./analyzers --version 1.0.0
+```
+
+Force a detection source with `--detect-from` (overrides smart routing):
+
+```bash
+alcops download 18.0.2293710 --detect-from marketplace --output ./analyzers
+```
+
+Enable verbose logging for debugging:
+
+```bash
+alcops download latest --output ./analyzers --verbose
+```
+
+#### Download Output
+
+```json
+{
+  "version": "1.0.0",
+  "tfm": "net8.0",
+  "outputDir": "/absolute/path/to/analyzers",
+  "files": [
+    "/absolute/path/to/analyzers/ALCops.Analyzers.dll"
+  ]
+}
 ```
 
 ### Output
@@ -102,6 +171,13 @@ echo "Building with TFM: $TFM"
 
 - name: Use TFM
   run: echo "Target framework is ${{ steps.tfm.outputs.tfm }}"
+```
+
+Or use the `download` command for a one-step solution:
+
+```yaml
+- name: Download ALCops Analyzers
+  run: npx @alcops/core download latest --output ./analyzers --verbose
 ```
 
 ## Programmatic API
