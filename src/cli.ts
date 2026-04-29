@@ -12,8 +12,8 @@ Usage: alcops <command> [args]
 
 Commands:
   detect-tfm bc-artifact <url>         Detect TFM from a BC artifact URL
-  detect-tfm marketplace [channel]     Detect TFM from VS Marketplace (default: current)
-  detect-tfm nuget-devtools [version]  Detect TFM from NuGet DevTools (default: latest)
+  detect-tfm marketplace [channel|version]     Detect TFM from VS Marketplace (default: current)
+  detect-tfm nuget-devtools [version|channel]  Detect TFM from NuGet DevTools (default: latest)
   detect-tfm compiler-path <dir>       Detect TFM from a local compiler directory
   download --output <dir>               Download and extract ALCops analyzers
 
