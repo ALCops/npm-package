@@ -15,10 +15,11 @@ Commands:
   detect-tfm marketplace [channel]     Detect TFM from VS Marketplace (default: current)
   detect-tfm nuget-devtools [version]  Detect TFM from NuGet DevTools (default: latest)
   detect-tfm compiler-path <dir>       Detect TFM from a local compiler directory
-  download [source] --output <dir>     Download and extract ALCops analyzers
+  download --output <dir>               Download and extract ALCops analyzers
 
 Download options:
   --output <dir>                       Required. Directory to extract analyzer DLLs into
+  --detect-source <input>              TFM detection input (URL, path, channel, or version)
   --tfm <tfm>                          Explicit TFM (skips auto-detection)
   --version <ver>                      ALCops package version (default: latest)
   --detect-from <source>               Force detection source (bc-artifact, marketplace,
@@ -96,6 +97,7 @@ async function main(): Promise<void> {
         const tfm = getFlagValue(downloadArgs, '--tfm');
         const version = getFlagValue(downloadArgs, '--version');
         const detectFrom = getFlagValue(downloadArgs, '--detect-from') as DetectSource | undefined;
+        const detectSource = getFlagValue(downloadArgs, '--detect-source');
 
         if (!outputDir) {
             process.stderr.write('Error: --output <dir> is required for the download command\n');
@@ -111,11 +113,8 @@ async function main(): Promise<void> {
             process.exit(1);
         }
 
-        // Positional arg is the source (first arg that doesn't start with --)
-        const source = downloadArgs.find((a) => !a.startsWith('--') && !isFlagValue(downloadArgs, a));
-
         const result = await executeDownload(
-            { source, tfm, version, detectFrom, outputDir },
+            { detectSource, tfm, version, detectFrom, outputDir },
             logger,
         );
 
@@ -131,11 +130,6 @@ function getFlagValue(args: string[], flag: string): string | undefined {
     const idx = args.indexOf(flag);
     if (idx === -1 || idx + 1 >= args.length) return undefined;
     return args[idx + 1];
-}
-
-function isFlagValue(args: string[], value: string): boolean {
-    const idx = args.indexOf(value);
-    return idx > 0 && args[idx - 1].startsWith('--');
 }
 
 const VALID_DETECT_SOURCES = new Set(['bc-artifact', 'marketplace', 'nuget-devtools', 'compiler-path']);

@@ -98,7 +98,7 @@ describe('executeDownload', () => {
 
         const outputDir = path.join(tmpDir, 'output');
         const result = await executeDownload({
-            source: 'https://bcartifacts/onprem/24.0/us',
+            detectSource: 'https://bcartifacts/onprem/24.0/us',
             outputDir,
         });
 
@@ -116,7 +116,7 @@ describe('executeDownload', () => {
 
         const outputDir = path.join(tmpDir, 'output');
         const result = await executeDownload({
-            source: 'latest',
+            detectSource: 'latest',
             outputDir,
         });
 
@@ -131,7 +131,7 @@ describe('executeDownload', () => {
 
         const outputDir = path.join(tmpDir, 'output');
         const result = await executeDownload({
-            source: 'https://bcartifacts/some-url',
+            detectSource: 'https://bcartifacts/some-url',
             detectFrom: 'marketplace',
             outputDir,
         });
@@ -142,10 +142,10 @@ describe('executeDownload', () => {
         expect(result.tfm).toBe('net8.0');
     });
 
-    it('throws when neither --tfm nor source is provided', async () => {
+    it('throws when neither --tfm nor --detect-source is provided', async () => {
         const outputDir = path.join(tmpDir, 'output');
         await expect(executeDownload({ outputDir })).rejects.toThrow(
-            /Either --tfm or a detection source argument is required/,
+            /Either --tfm or --detect-source is required/,
         );
     });
 

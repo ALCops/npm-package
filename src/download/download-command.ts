@@ -11,8 +11,8 @@ import { resolveVersion, downloadPackage } from './nuget-api';
 import { extractAnalyzers } from './nuget-extractor';
 
 export interface DownloadOptions {
-    /** Detection source input (URL, path, channel, or version string) */
-    source?: string;
+    /** TFM detection input (URL, path, channel keyword, or version number) */
+    detectSource?: string;
     /** Explicit TFM, skips detection */
     tfm?: string;
     /** ALCops package version to download (default: 'latest') */
@@ -82,16 +82,16 @@ async function resolveTfm(options: DownloadOptions, logger: Logger): Promise<str
         return options.tfm;
     }
 
-    if (!options.source) {
+    if (!options.detectSource) {
         throw new Error(
-            'Either --tfm or a detection source argument is required. ' +
+            'Either --tfm or --detect-source is required. ' +
             'Run "alcops download --help" for usage.',
         );
     }
 
     const detectSource = options.detectFrom
-        ? { source: options.detectFrom, input: options.source }
-        : await resolveDetectSource(options.source, logger);
+        ? { source: options.detectFrom, input: options.detectSource }
+        : await resolveDetectSource(options.detectSource, logger);
 
     logger.info(`Detection source: ${detectSource.source} (input: ${detectSource.input})`);
 
