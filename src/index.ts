@@ -4,9 +4,9 @@ export { detectFromMarketplace, queryMarketplace, resolveExtensionVersion } from
 export { detectFromNuGetDevTools, resolveDevToolsVersion, selectBestDllEntry } from './detectors/nuget-devtools';
 export { detectFromCompilerPath, findDllFiles } from './detectors/compiler-path';
 
-// Install
-export { resolveVersion, downloadPackage, getDownloadUrl } from './install/nuget-api';
-export { extractAnalyzers, findMatchingTfmFolder } from './install/nuget-extractor';
+// Download
+export { resolveVersion, downloadPackage, getDownloadUrl } from './download/nuget-api';
+export { extractAnalyzers, findMatchingTfmFolder } from './download/nuget-extractor';
 
 // Shared utilities
 export { getUserAgent } from './user-agent';
