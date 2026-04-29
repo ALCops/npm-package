@@ -19,7 +19,9 @@ Commands:
 
 Download options:
   --output <dir>                       Required. Directory to extract analyzer DLLs into
-  --detect-using <input>               TFM detection input (URL, path, channel, or version)
+  --detect-using <input>               TFM detection input: URL, path, version, or channel
+                                         Channels: latest (or current, stable)
+                                                   preview (or next, prerelease, beta)
   --tfm <tfm>                          Explicit TFM (skips auto-detection)
   --version <ver>                      ALCops package version (default: latest)
   --detect-from <source>               Force detection source (bc-artifact, marketplace,

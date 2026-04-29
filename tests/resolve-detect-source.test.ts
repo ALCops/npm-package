@@ -15,6 +15,7 @@ import { queryMarketplace } from '../src/detectors/marketplace';
 import {
     resolveDetectSource,
     resolveVersionSource,
+    CHANNEL_ALIASES,
 } from '../src/resolve-detect-source';
 import type { RegistrationVersion } from '../src/types';
 
@@ -47,14 +48,35 @@ describe('resolveDetectSource', () => {
         expect(result).toEqual({ source: 'nuget-devtools', input: 'latest' });
     });
 
-    it('classifies "prerelease" as nuget-devtools channel', async () => {
+    it('classifies "prerelease" as nuget-devtools channel normalized to "preview"', async () => {
         const result = await resolveDetectSource('prerelease');
-        expect(result).toEqual({ source: 'nuget-devtools', input: 'prerelease' });
+        expect(result).toEqual({ source: 'nuget-devtools', input: 'preview' });
     });
 
-    it('classifies "current" as nuget-devtools channel', async () => {
+    it('classifies "current" as nuget-devtools channel normalized to "latest"', async () => {
         const result = await resolveDetectSource('current');
-        expect(result).toEqual({ source: 'nuget-devtools', input: 'current' });
+        expect(result).toEqual({ source: 'nuget-devtools', input: 'latest' });
+    });
+
+    it.each([
+        ['stable', 'latest'],
+        ['next', 'preview'],
+        ['preview', 'preview'],
+        ['beta', 'preview'],
+    ])('classifies "%s" as nuget-devtools channel normalized to "%s"', async (input, expected) => {
+        const result = await resolveDetectSource(input);
+        expect(result).toEqual({ source: 'nuget-devtools', input: expected });
+    });
+
+    it('normalizes channel keywords case-insensitively', async () => {
+        const result = await resolveDetectSource('LATEST');
+        expect(result).toEqual({ source: 'nuget-devtools', input: 'latest' });
+    });
+
+    it('exports CHANNEL_ALIASES with all expected keys', () => {
+        expect(Object.keys(CHANNEL_ALIASES).sort()).toEqual(
+            ['beta', 'current', 'latest', 'next', 'prerelease', 'preview', 'stable'].sort(),
+        );
     });
 
     it('resolves a NuGet DevTools version via API', async () => {

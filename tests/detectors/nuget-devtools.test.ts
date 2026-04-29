@@ -79,9 +79,9 @@ describe('resolveDevToolsVersion', () => {
         expect(result).toBe('26.0.54321.0');
     });
 
-    it('resolves "prerelease" to the very last version including pre-release', async () => {
+    it('resolves "preview" to the very last version including pre-release', async () => {
         mockHttpsGet(createMockResponse(sampleVersions));
-        const result = await resolveDevToolsVersion('prerelease');
+        const result = await resolveDevToolsVersion('preview');
         expect(result).toBe('26.1.0.0-preview1');
     });
 });
