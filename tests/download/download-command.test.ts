@@ -142,10 +142,10 @@ describe('executeDownload', () => {
         expect(result.tfm).toBe('net8.0');
     });
 
-    it('throws when neither --tfm nor --detect-source is provided', async () => {
+    it('throws when neither --tfm nor --detect-using is provided', async () => {
         const outputDir = path.join(tmpDir, 'output');
         await expect(executeDownload({ outputDir })).rejects.toThrow(
-            /Either --tfm or --detect-source is required/,
+            /Either --tfm or --detect-using is required/,
         );
     });
 

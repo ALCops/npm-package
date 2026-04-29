@@ -19,7 +19,7 @@ Commands:
 
 Download options:
   --output <dir>                       Required. Directory to extract analyzer DLLs into
-  --detect-source <input>              TFM detection input (URL, path, channel, or version)
+  --detect-using <input>               TFM detection input (URL, path, channel, or version)
   --tfm <tfm>                          Explicit TFM (skips auto-detection)
   --version <ver>                      ALCops package version (default: latest)
   --detect-from <source>               Force detection source (bc-artifact, marketplace,
@@ -97,7 +97,7 @@ async function main(): Promise<void> {
         const tfm = getFlagValue(downloadArgs, '--tfm');
         const version = getFlagValue(downloadArgs, '--version');
         const detectFrom = getFlagValue(downloadArgs, '--detect-from') as DetectSource | undefined;
-        const detectSource = getFlagValue(downloadArgs, '--detect-source');
+        const detectSource = getFlagValue(downloadArgs, '--detect-using');
 
         if (!outputDir) {
             process.stderr.write('Error: --output <dir> is required for the download command\n');

@@ -84,7 +84,7 @@ async function resolveTfm(options: DownloadOptions, logger: Logger): Promise<str
 
     if (!options.detectSource) {
         throw new Error(
-            'Either --tfm or --detect-source is required. ' +
+            'Either --tfm or --detect-using is required. ' +
             'Run "alcops download --help" for usage.',
         );
     }

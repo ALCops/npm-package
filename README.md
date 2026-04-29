@@ -46,7 +46,7 @@ Commands:
 
 Download options:
   --output <dir>                       Required. Directory to extract analyzer DLLs into
-  --detect-source <input>              TFM detection input (URL, path, channel, or version)
+  --detect-using <input>               TFM detection input (URL, path, channel, or version)
   --tfm <tfm>                          Explicit TFM (skips auto-detection)
   --version <ver>                      ALCops package version (default: latest)
   --detect-from <source>               Force detection source (bc-artifact, marketplace,
@@ -90,19 +90,19 @@ The `download` command combines TFM detection with analyzer extraction in a sing
 Download analyzers with auto-detected TFM from the latest NuGet DevTools:
 
 ```bash
-alcops download --detect-source latest --output ./analyzers
+alcops download --detect-using latest --output ./analyzers
 ```
 
 Download analyzers with auto-detected TFM from a BC artifact URL:
 
 ```bash
-alcops download --detect-source "https://bcartifacts.azureedge.net/sandbox/26.0.12345.0/us" --output ./analyzers
+alcops download --detect-using "https://bcartifacts.azureedge.net/sandbox/26.0.12345.0/us" --output ./analyzers
 ```
 
 Download analyzers with auto-detected TFM from a local compiler directory:
 
 ```bash
-alcops download --detect-source ./path/to/compiler --output ./analyzers
+alcops download --detect-using ./path/to/compiler --output ./analyzers
 ```
 
 Download analyzers with an explicit TFM (skips detection):
@@ -114,19 +114,19 @@ alcops download --tfm net8.0 --output ./analyzers
 Download a specific ALCops version:
 
 ```bash
-alcops download --detect-source latest --output ./analyzers --version 1.0.0
+alcops download --detect-using latest --output ./analyzers --version 1.0.0
 ```
 
 Force a detection source with `--detect-from` (overrides smart routing):
 
 ```bash
-alcops download --detect-source 18.0.2293710 --detect-from marketplace --output ./analyzers
+alcops download --detect-using 18.0.2293710 --detect-from marketplace --output ./analyzers
 ```
 
 Enable verbose logging for debugging:
 
 ```bash
-alcops download --detect-source latest --output ./analyzers --verbose
+alcops download --detect-using latest --output ./analyzers --verbose
 ```
 
 #### Download Output
@@ -178,7 +178,7 @@ Or use the `download` command for a one-step solution:
 
 ```yaml
 - name: Download ALCops Analyzers
-  run: npx @alcops/core download --detect-source latest --output ./analyzers --verbose
+  run: npx @alcops/core download --detect-using latest --output ./analyzers --verbose
 ```
 
 ## Programmatic API
