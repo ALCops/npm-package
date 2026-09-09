@@ -1,6 +1,9 @@
 import * as https from 'https';
-import { TfmDetectionResult, VS_MARKETPLACE_API, AL_EXTENSION_ID, VSIX_DLL_PATH } from '../types';
-import { extractRemoteZipEntry } from '../http-range';
+import {
+    TfmDetectionResult, VS_MARKETPLACE_API, AL_EXTENSION_ID,
+    AL_COMPILER_DLL, VSIX_DLL_PATH_CANDIDATES, describeVsixLayout,
+} from '../types';
+import { extractRemoteZipFirstEntry } from '../http-range';
 import { detectTfmFromDllBuffer } from '../vsix-tfm';
 import { Logger, nullLogger } from '../logger';
 
@@ -114,7 +117,30 @@ export async function detectFromMarketplace(
     const resolved = await resolveExtensionVersion(channel, logger);
     logger.info('Extracting CodeAnalysis DLL from VSIX...');
     logger.debug(`VSIX URL: ${resolved.vsixUrl}`);
-    const dllBuffer = await extractRemoteZipEntry(resolved.vsixUrl, VSIX_DLL_PATH, logger);
+    let dllBuffer: Buffer;
+    let entryPath: string;
+    try {
+        ({ buffer: dllBuffer, entryPath } = await extractRemoteZipFirstEntry(
+            resolved.vsixUrl,
+            VSIX_DLL_PATH_CANDIDATES,
+            logger,
+        ));
+    } catch (err) {
+        const reason = err instanceof Error ? err.message : String(err);
+        // Only a genuine layout miss gets the actionable hint; transport and
+        // ZIP-parsing failures must surface as themselves.
+        if (!reason.startsWith('Entry not found in ZIP')) {
+            throw err;
+        }
+        throw new Error(
+            `${AL_COMPILER_DLL} not found in AL Language VSIX ${resolved.version}. `
+            + `Probed: ${VSIX_DLL_PATH_CANDIDATES.join(', ')}. `
+            + 'The VSIX layout may have changed; use --detect-from nuget-devtools '
+            + `or pass --tfm explicitly. (${reason})`,
+            { cause: err },
+        );
+    }
+    logger.info(`Found CodeAnalysis DLL at '${entryPath}' (${describeVsixLayout(entryPath)})`);
     const { tfm, assemblyVersion } = detectTfmFromDllBuffer(dllBuffer, logger);
 
     return {

@@ -163,14 +163,7 @@ export async function extractRemoteZipCentralEntry(url: string, entry: ZipCentra
  */
 export async function extractRemoteZipEntry(url: string, entryPath: string, logger: Logger = nullLogger): Promise<Buffer> {
     logger.info(`Extracting '${entryPath}' from remote ZIP`);
-    const eocd = await readZipEOCD(url, logger);
-    const cdBytes = await fetchRange(
-        url,
-        eocd.centralDirectoryOffset,
-        eocd.centralDirectoryOffset + eocd.centralDirectorySize - 1,
-        logger,
-    );
-    const entries = parseZipCentralDirectory(cdBytes);
+    const entries = await readRemoteZipCentralDirectory(url, logger);
 
     const entry = entries.find((e) => e.fileName === entryPath)
         ?? findEntryByFilename(entries, entryPath);
@@ -182,7 +175,47 @@ export async function extractRemoteZipEntry(url: string, entryPath: string, logg
     return extractRemoteZipCentralEntry(url, entry, logger);
 }
 
+/**
+ * Extract the first of several candidate entries from a remote ZIP.
+ * The central directory is read once and the candidates are probed in order
+ * using an exact path match; the first hit wins.
+ * Returns the extracted buffer together with the entry path that matched.
+ */
+export async function extractRemoteZipFirstEntry(
+    url: string,
+    entryPaths: readonly string[],
+    logger: Logger = nullLogger,
+): Promise<{ buffer: Buffer; entryPath: string }> {
+    logger.info(`Extracting first of ${entryPaths.length} candidate entries from remote ZIP`);
+    const entries = await readRemoteZipCentralDirectory(url, logger);
+
+    for (const candidate of entryPaths) {
+        const entry = entries.find((e) => e.fileName === candidate);
+        if (entry) {
+            logger.debug(`Candidate '${candidate}' matched`);
+            const buffer = await extractRemoteZipCentralEntry(url, entry, logger);
+            return { buffer, entryPath: candidate };
+        }
+        logger.debug(`Candidate '${candidate}' not present`);
+    }
+
+    logger.debug(`None of the ${entryPaths.length} candidates found among ${entries.length} entries`);
+    throw new Error(`Entry not found in ZIP. Probed: ${entryPaths.join(', ')}`);
+}
+
 // ── Internal helpers ──
+
+/** Read the EOCD and the full central directory of a remote ZIP (one pass). */
+async function readRemoteZipCentralDirectory(url: string, logger: Logger): Promise<ZipCentralEntry[]> {
+    const eocd = await readZipEOCD(url, logger);
+    const cdBytes = await fetchRange(
+        url,
+        eocd.centralDirectoryOffset,
+        eocd.centralDirectoryOffset + eocd.centralDirectorySize - 1,
+        logger,
+    );
+    return parseZipCentralDirectory(cdBytes);
+}
 
 function doRequest(
     url: string,

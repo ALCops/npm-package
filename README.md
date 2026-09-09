@@ -10,7 +10,7 @@ Automatically detect the Target Framework Moniker (TFM) for Business Central and
 
 - Detect the TFM from four different sources:
   - **BC artifact URL** (e.g. a sandbox or OnPrem artifact)
-  - **VS Marketplace** (the AL Language extension)
+  - **VS Marketplace** (the AL Language extension; both the AL 18+ flat `extension/bin/` and the legacy `extension/bin/Analyzers/` VSIX layouts are supported)
   - **NuGet DevTools** (Microsoft's AL development tools package)
   - **Local compiler path** (a directory containing the AL compiler DLLs)
 - **Download and extract** ALCops analyzer DLLs for a detected TFM
@@ -180,6 +180,13 @@ Or use the `download` command for a one-step solution:
 - name: Download ALCops Analyzers
   run: npx @alcops/core download --detect-using latest --output ./analyzers --verbose
 ```
+
+### AL 18 / BC 29 notes
+
+- The AL Language 18 VSIX ships its compiler binaries flat in `extension/bin/` (no more `Analyzers/`, `win32/`, `linux/` or `darwin/` folders). Detection probes the flat layout first and falls back to the legacy path, so both AL 18+ and AL <= 17 work unchanged.
+- Those binaries target **net10.0** and are framework-dependent: compiling with the AL 18 toolset needs a .NET 10 runtime on the machine or agent.
+- The Microsoft DevTools NuGet package ships both `net8.0` and `net10.0` assemblies. Detection prefers the newest TFM, so `nuget-devtools` reports `net10.0`.
+- If your build runs the `net8.0` toolset, point detection at it with `--detect-from compiler-path` or skip detection entirely with `--tfm net8.0`.
 
 ## Programmatic API
 

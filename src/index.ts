@@ -20,11 +20,11 @@ export { getTargetFrameworkFromDotNetVersion } from './version-threshold';
 export { detectTfmFromBuffer, detectAssemblyVersionFromBuffer, toShortTfm } from './binary-tfm';
 export { detectTfmFromDllBuffer, detectTfmFromVsixBuffer } from './vsix-tfm';
 export { parseArtifactUrl, buildArtifactVariantUrl, downloadFullZip } from './bc-artifact-url';
-export { extractZipEntryFromBuffer, listZipEntries } from './zip-local';
+export { extractZipEntryFromBuffer, extractZipFirstEntryFromBuffer, listZipEntries } from './zip-local';
 export {
     fetchRange, getContentLength, readZipEOCD,
     parseZipCentralDirectory, findEntryByFilename,
-    extractRemoteZipCentralEntry, extractRemoteZipEntry,
+    extractRemoteZipCentralEntry, extractRemoteZipEntry, extractRemoteZipFirstEntry,
 } from './http-range';
 export type { ZipEOCD, ZipCentralEntry } from './http-range';
 export { httpsGetBuffer, httpsGetJson } from './http-client';
@@ -36,6 +36,7 @@ export {
     TFM_PREFERENCE, AL_COMPILER_DLL, NUGET_PACKAGE_NAME,
     NUGET_FLAT_CONTAINER, NUGET_REGISTRATION_BASE,
     VS_MARKETPLACE_API, AL_EXTENSION_ID, VSIX_DLL_PATH,
+    VSIX_DLL_PATH_CANDIDATES, describeVsixLayout,
 } from './types';
 
 // Logger

@@ -4,17 +4,17 @@ import * as https from 'https';
 
 vi.mock('https');
 vi.mock('../../src/http-range', () => ({
-    extractRemoteZipEntry: vi.fn(),
+    extractRemoteZipFirstEntry: vi.fn(),
 }));
 vi.mock('../../src/vsix-tfm', () => ({
     detectTfmFromDllBuffer: vi.fn(),
 }));
 
-import { extractRemoteZipEntry } from '../../src/http-range';
+import { extractRemoteZipFirstEntry } from '../../src/http-range';
 import { detectTfmFromDllBuffer } from '../../src/vsix-tfm';
 
 const mockRequest = https.request as unknown as ReturnType<typeof vi.fn>;
-const mockExtract = vi.mocked(extractRemoteZipEntry);
+const mockExtract = vi.mocked(extractRemoteZipFirstEntry);
 const mockDetectDll = vi.mocked(detectTfmFromDllBuffer);
 
 // ── Helpers ──
@@ -203,7 +203,10 @@ describe('detectFromMarketplace', () => {
             { version: '15.0.100.0', vsixUrl: 'https://example.com/al.vsix' },
         ]);
         enqueueMarketplaceResponse(response);
-        mockExtract.mockResolvedValue(Buffer.from('fake-dll'));
+        mockExtract.mockResolvedValue({
+            buffer: Buffer.from('fake-dll'),
+            entryPath: 'extension/bin/Microsoft.Dynamics.Nav.CodeAnalysis.dll',
+        });
         mockDetectDll.mockReturnValue({ tfm: 'net8.0', assemblyVersion: '17.0.0.0' });
 
         const { detectFromMarketplace } = await importModule();
@@ -215,7 +218,10 @@ describe('detectFromMarketplace', () => {
         expect(result.source).toBe('vs-marketplace');
         expect(mockExtract).toHaveBeenCalledWith(
             'https://example.com/al.vsix',
-            'extension/bin/Analyzers/Microsoft.Dynamics.Nav.CodeAnalysis.dll',
+            [
+                'extension/bin/Microsoft.Dynamics.Nav.CodeAnalysis.dll',
+                'extension/bin/Analyzers/Microsoft.Dynamics.Nav.CodeAnalysis.dll',
+            ],
             expect.any(Object),
         );
         expect(mockDetectDll).toHaveBeenCalledWith(Buffer.from('fake-dll'), expect.any(Object));
@@ -226,7 +232,10 @@ describe('detectFromMarketplace', () => {
             { version: '14.0.50.0', vsixUrl: 'https://example.com/old.vsix' },
         ]);
         enqueueMarketplaceResponse(response);
-        mockExtract.mockResolvedValue(Buffer.from('fake-dll'));
+        mockExtract.mockResolvedValue({
+            buffer: Buffer.from('fake-dll'),
+            entryPath: 'extension/bin/Microsoft.Dynamics.Nav.CodeAnalysis.dll',
+        });
         mockDetectDll.mockReturnValue({ tfm: 'netstandard2.1', assemblyVersion: '14.0.0.0' });
 
         const { detectFromMarketplace } = await importModule();
@@ -241,7 +250,10 @@ describe('detectFromMarketplace', () => {
             { version: '15.0.100.0', vsixUrl: 'https://example.com/al.vsix' },
         ]);
         enqueueMarketplaceResponse(response);
-        mockExtract.mockResolvedValue(Buffer.from('fake-dll'));
+        mockExtract.mockResolvedValue({
+            buffer: Buffer.from('fake-dll'),
+            entryPath: 'extension/bin/Microsoft.Dynamics.Nav.CodeAnalysis.dll',
+        });
         mockDetectDll.mockImplementation(() => {
             throw new Error('Could not detect target framework from CodeAnalysis DLL');
         });
@@ -255,7 +267,10 @@ describe('detectFromMarketplace', () => {
             { version: '15.0.100.0', vsixUrl: 'https://example.com/al.vsix' },
         ]);
         enqueueMarketplaceResponse(response);
-        mockExtract.mockResolvedValue(Buffer.from('fake-dll'));
+        mockExtract.mockResolvedValue({
+            buffer: Buffer.from('fake-dll'),
+            entryPath: 'extension/bin/Microsoft.Dynamics.Nav.CodeAnalysis.dll',
+        });
         mockDetectDll.mockReturnValue({ tfm: 'net8.0', assemblyVersion: null });
 
         const { detectFromMarketplace } = await importModule();
@@ -264,5 +279,40 @@ describe('detectFromMarketplace', () => {
         expect(result.tfm).toBe('net8.0');
         expect(result.assemblyVersion).toBeNull();
         expect(result.details).not.toContain('assemblyVersion');
+    });
+    it('reports an actionable error when neither VSIX layout contains the DLL', async () => {
+        const response = buildMarketplaceResponse([
+            { version: '18.0.2668733', vsixUrl: 'https://example.com/al18.vsix' },
+        ]);
+        enqueueMarketplaceResponse(response);
+        mockExtract.mockRejectedValue(new Error(
+            'Entry not found in ZIP. Probed: extension/bin/Microsoft.Dynamics.Nav.CodeAnalysis.dll, '
+            + 'extension/bin/Analyzers/Microsoft.Dynamics.Nav.CodeAnalysis.dll',
+        ));
+
+        const { detectFromMarketplace } = await importModule();
+        const err = await detectFromMarketplace('current').catch((e: Error) => e);
+
+        expect(err).toBeInstanceOf(Error);
+        const message = (err as Error).message;
+        expect(message).toContain('Microsoft.Dynamics.Nav.CodeAnalysis.dll not found in AL Language VSIX 18.0.2668733');
+        expect(message).toContain('extension/bin/Microsoft.Dynamics.Nav.CodeAnalysis.dll');
+        expect(message).toContain('extension/bin/Analyzers/Microsoft.Dynamics.Nav.CodeAnalysis.dll');
+        expect(message).toContain('nuget-devtools');
+        expect(message).toContain('--tfm');
+        expect(message).toContain('Entry not found in ZIP. Probed:');
+    });
+
+    it('propagates transport failures unchanged instead of blaming the VSIX layout', async () => {
+        const response = buildMarketplaceResponse([
+            { version: '18.0.2668733', vsixUrl: 'https://example.com/al18.vsix' },
+        ]);
+        enqueueMarketplaceResponse(response);
+        mockExtract.mockRejectedValue(new Error('unable to get local issuer certificate'));
+
+        const { detectFromMarketplace } = await importModule();
+        const err = await detectFromMarketplace('current').catch((e: Error) => e);
+
+        expect((err as Error).message).toBe('unable to get local issuer certificate');
     });
 });

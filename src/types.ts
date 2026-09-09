@@ -29,8 +29,28 @@ export const VS_MARKETPLACE_API =
 /** AL Language extension identifier on VS Marketplace */
 export const AL_EXTENSION_ID = 'ms-dynamics-smb.al';
 
-/** Path to CodeAnalysis DLL inside the AL Language VSIX */
-export const VSIX_DLL_PATH = 'extension/bin/Analyzers/Microsoft.Dynamics.Nav.CodeAnalysis.dll';
+/**
+ * Paths to the CodeAnalysis DLL inside the AL Language VSIX, in probe order:
+ * 1. `extension/bin/` — flat layout used by AL 18+ / BC 29 (net10.0, framework-dependent).
+ * 2. `extension/bin/Analyzers/` — legacy layout used by AL <= 17.
+ *
+ * The order is unambiguous: legacy VSIXs never place the DLL directly in
+ * `extension/bin/`, so a flat hit always means the new layout.
+ */
+export const VSIX_DLL_PATH_CANDIDATES: readonly string[] = [
+    `extension/bin/${AL_COMPILER_DLL}`,
+    `extension/bin/Analyzers/${AL_COMPILER_DLL}`,
+];
+
+/** @deprecated Legacy (AL <= 17) VSIX path. Use {@link VSIX_DLL_PATH_CANDIDATES}. */
+export const VSIX_DLL_PATH = VSIX_DLL_PATH_CANDIDATES[1];
+
+/** Human-readable name of the VSIX bin layout a matched candidate path belongs to. */
+export function describeVsixLayout(entryPath: string): string {
+    return entryPath === VSIX_DLL_PATH_CANDIDATES[0]
+        ? 'flat (AL 18+)'
+        : 'legacy (AL <= 17)';
+}
 
 /** Result of TFM detection */
 export interface TfmDetectionResult {
