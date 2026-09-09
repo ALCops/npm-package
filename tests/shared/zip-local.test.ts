@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { deflateSync } from 'fflate';
-import { extractZipEntryFromBuffer, findEntryByFilename, listZipEntries } from '../../src/zip-local';
+import { deflateSync, zipSync } from 'fflate';
+import { extractZipEntryFromBuffer, extractZipFirstEntryFromBuffer, findEntryByFilename, listZipEntries } from '../../src/zip-local';
 import { ZipCentralEntry } from '../../src/http-range';
 import { nullLogger } from '../../src/logger';
 
@@ -183,6 +183,64 @@ describe('extractZipEntryFromBuffer', () => {
         expect(() => extractZipEntryFromBuffer(zip, 'missing.dll', logger)).toThrow();
         const notFoundMsg = debugMessages.find((m) => m.includes('not found'));
         expect(notFoundMsg).toContain("No entries matching 'missing.dll' among 2 entries");
+    });
+});
+
+describe('extractZipFirstEntryFromBuffer', () => {
+    const FLAT = 'extension/bin/Microsoft.Dynamics.Nav.CodeAnalysis.dll';
+    const LEGACY = 'extension/bin/Analyzers/Microsoft.Dynamics.Nav.CodeAnalysis.dll';
+    const CANDIDATES = [FLAT, LEGACY];
+
+    /** Build a real ZIP (deflate) from a path → content map. */
+    function buildVsix(files: Record<string, string>): Buffer {
+        const entries: Record<string, Uint8Array> = {};
+        for (const [name, content] of Object.entries(files)) {
+            entries[name] = new Uint8Array(Buffer.from(content, 'utf-8'));
+        }
+        return Buffer.from(zipSync(entries));
+    }
+
+    it('finds the DLL in the AL 18+ flat layout', () => {
+        const zip = buildVsix({ 'extension/package.json': '{}', [FLAT]: 'flat-dll' });
+
+        const result = extractZipFirstEntryFromBuffer(zip, CANDIDATES);
+
+        expect(result.entryPath).toBe(FLAT);
+        expect(result.buffer.toString('utf-8')).toBe('flat-dll');
+    });
+
+    it('falls back to the legacy Analyzers layout', () => {
+        const zip = buildVsix({ 'extension/package.json': '{}', [LEGACY]: 'legacy-dll' });
+
+        const result = extractZipFirstEntryFromBuffer(zip, CANDIDATES);
+
+        expect(result.entryPath).toBe(LEGACY);
+        expect(result.buffer.toString('utf-8')).toBe('legacy-dll');
+    });
+
+    it('prefers the flat layout when both are present', () => {
+        const zip = buildVsix({ [LEGACY]: 'legacy-dll', [FLAT]: 'flat-dll' });
+
+        const result = extractZipFirstEntryFromBuffer(zip, CANDIDATES);
+
+        expect(result.entryPath).toBe(FLAT);
+        expect(result.buffer.toString('utf-8')).toBe('flat-dll');
+    });
+
+    it('throws listing every probed path when none match', () => {
+        const zip = buildVsix({ 'extension/package.json': '{}' });
+
+        expect(() => extractZipFirstEntryFromBuffer(zip, CANDIDATES)).toThrow(
+            `Entry not found in ZIP buffer. Probed: ${FLAT}, ${LEGACY}`,
+        );
+    });
+
+    it('does not fall back to a basename match', () => {
+        const zip = buildVsix({ 'somewhere/else/Microsoft.Dynamics.Nav.CodeAnalysis.dll': 'stray' });
+
+        expect(() => extractZipFirstEntryFromBuffer(zip, CANDIDATES)).toThrow(
+            'Entry not found in ZIP buffer. Probed:',
+        );
     });
 });
 

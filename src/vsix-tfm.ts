@@ -1,6 +1,6 @@
-import { TargetFramework, VSIX_DLL_PATH } from './types';
+import { TargetFramework, VSIX_DLL_PATH_CANDIDATES, describeVsixLayout } from './types';
 import { detectTfmFromBuffer, detectAssemblyVersionFromBuffer } from './binary-tfm';
-import { extractZipEntryFromBuffer } from './zip-local';
+import { extractZipFirstEntryFromBuffer } from './zip-local';
 import { Logger, nullLogger } from './logger';
 
 export interface VsixTfmResult {
@@ -33,9 +33,16 @@ export function detectTfmFromDllBuffer(dllBuffer: Buffer, logger: Logger = nullL
 
 /**
  * Detect TFM from a VSIX buffer (ALLanguage.vsix).
- * Extracts the CodeAnalysis DLL, then delegates to detectTfmFromDllBuffer.
+ * Probes both known CodeAnalysis DLL locations (AL 18+ flat `extension/bin/`
+ * first, legacy `extension/bin/Analyzers/` second), then delegates to
+ * detectTfmFromDllBuffer.
  */
 export function detectTfmFromVsixBuffer(vsixBuffer: Buffer, logger: Logger = nullLogger): VsixTfmResult {
-    const dllBuffer = extractZipEntryFromBuffer(vsixBuffer, VSIX_DLL_PATH, logger);
+    const { buffer: dllBuffer, entryPath } = extractZipFirstEntryFromBuffer(
+        vsixBuffer,
+        VSIX_DLL_PATH_CANDIDATES,
+        logger,
+    );
+    logger.info(`Found CodeAnalysis DLL at '${entryPath}' (${describeVsixLayout(entryPath)})`);
     return detectTfmFromDllBuffer(dllBuffer, logger);
 }

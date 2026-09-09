@@ -1,6 +1,7 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { EventEmitter } from 'events';
 import * as https from 'https';
+import { zipSync } from 'fflate';
 
 // ── Mock https module ──
 vi.mock('https', () => ({
@@ -15,6 +16,7 @@ import {
     parseZipCentralDirectory,
     readZipEOCD,
     extractRemoteZipEntry,
+    extractRemoteZipFirstEntry,
     findEntryByFilename,
     type ZipCentralEntry,
 } from '../../src/http-range';
@@ -564,5 +566,146 @@ describe('findEntryByFilename', () => {
             { fileName: 'other.txt', compressedSize: 10, uncompressedSize: 10, localHeaderOffset: 0, compressionMethod: 0 },
         ];
         expect(findEntryByFilename(entries, 'ALLanguage.vsix')).toBeUndefined();
+    });
+});
+
+// ────────────────────────────────────────────────────────────────
+// extractRemoteZipFirstEntry  (candidate probing over a real ZIP)
+// ────────────────────────────────────────────────────────────────
+describe('extractRemoteZipFirstEntry', () => {
+    const FLAT = 'extension/bin/Microsoft.Dynamics.Nav.CodeAnalysis.dll';
+    const LEGACY = 'extension/bin/Analyzers/Microsoft.Dynamics.Nav.CodeAnalysis.dll';
+    const CANDIDATES = [FLAT, LEGACY];
+
+    /** Build a real ZIP (deflate) from a path → content map. */
+    function buildVsix(files: Record<string, string>): Buffer {
+        const entries: Record<string, Uint8Array> = {};
+        for (const [name, content] of Object.entries(files)) {
+            entries[name] = new Uint8Array(Buffer.from(content, 'utf-8'));
+        }
+        return Buffer.from(zipSync(entries));
+    }
+
+    /** Locate the central directory range of a ZIP buffer (for range accounting). */
+    function centralDirectoryRange(zip: Buffer): string {
+        for (let i = zip.length - 22; i >= 0; i--) {
+            if (zip.readUInt32LE(i) === 0x06054b50) {
+                const size = zip.readUInt32LE(i + 12);
+                const offset = zip.readUInt32LE(i + 16);
+                return `bytes=${offset}-${offset + size - 1}`;
+            }
+        }
+        throw new Error('no EOCD in test ZIP');
+    }
+
+    /**
+     * Serve the whole ZIP over the mocked https layer: HEAD returns the size,
+     * every Range request returns the corresponding slice. Returns the list of
+     * Range headers that were requested, so callers can assert on the traffic.
+     */
+    function serveZip(zip: Buffer): string[] {
+        const ranges: string[] = [];
+        mockRequest.mockImplementation((
+            _url: string,
+            reqOpts: { method?: string; headers?: Record<string, string> },
+            cb: (res: EventEmitter & { statusCode?: number; headers: Record<string, string> }) => void,
+        ) => {
+            const res = new EventEmitter() as EventEmitter & {
+                statusCode?: number;
+                headers: Record<string, string>;
+                resume: () => void;
+            };
+            res.resume = () => {};
+
+            const rangeHeader = reqOpts.headers?.Range;
+            if (reqOpts.method === 'HEAD') {
+                res.statusCode = 200;
+                res.headers = { 'content-length': String(zip.length) };
+                process.nextTick(() => {
+                    cb(res);
+                    res.emit('end');
+                });
+            } else {
+                ranges.push(rangeHeader!);
+                const [start, end] = rangeHeader!.replace('bytes=', '').split('-').map(Number);
+                res.statusCode = 206;
+                res.headers = {};
+                const body = zip.subarray(start, end + 1);
+                process.nextTick(() => {
+                    cb(res);
+                    res.emit('data', body);
+                    res.emit('end');
+                });
+            }
+
+            const req = new EventEmitter();
+            (req as EventEmitter & { end: () => void }).end = () => {};
+            return req;
+        });
+        return ranges;
+    }
+
+    // serveZip installs a persistent implementation; drop it after each case so
+    // it cannot leak into other suites (clearAllMocks keeps implementations).
+    afterEach(() => {
+        mockRequest.mockReset();
+    });
+
+    it('finds the DLL in the AL 18+ flat layout', async () => {
+        const zip = buildVsix({ 'extension/package.json': '{}', [FLAT]: 'flat-dll' });
+        serveZip(zip);
+
+        const result = await extractRemoteZipFirstEntry('https://example.com/al.vsix', CANDIDATES);
+
+        expect(result.entryPath).toBe(FLAT);
+        expect(result.buffer.toString('utf-8')).toBe('flat-dll');
+    });
+
+    it('falls back to the legacy Analyzers layout', async () => {
+        const zip = buildVsix({ 'extension/package.json': '{}', [LEGACY]: 'legacy-dll' });
+        serveZip(zip);
+
+        const result = await extractRemoteZipFirstEntry('https://example.com/al.vsix', CANDIDATES);
+
+        expect(result.entryPath).toBe(LEGACY);
+        expect(result.buffer.toString('utf-8')).toBe('legacy-dll');
+    });
+
+    it('prefers the flat layout when both are present', async () => {
+        const zip = buildVsix({ [LEGACY]: 'legacy-dll', [FLAT]: 'flat-dll' });
+        serveZip(zip);
+
+        const result = await extractRemoteZipFirstEntry('https://example.com/al.vsix', CANDIDATES);
+
+        expect(result.entryPath).toBe(FLAT);
+        expect(result.buffer.toString('utf-8')).toBe('flat-dll');
+    });
+
+    it('reads the central directory only once while probing', async () => {
+        const zip = buildVsix({ [LEGACY]: 'legacy-dll' });
+        const ranges = serveZip(zip);
+        const cdRange = centralDirectoryRange(zip);
+
+        await extractRemoteZipFirstEntry('https://example.com/al.vsix', CANDIDATES);
+
+        expect(ranges.filter((r) => r === cdRange)).toHaveLength(1);
+        // HEAD is not a range request: tail + central directory + local header + data
+        expect(ranges).toHaveLength(4);
+    });
+
+    it('throws listing every probed path when none match', async () => {
+        const zip = buildVsix({ 'extension/package.json': '{}' });
+        serveZip(zip);
+
+        await expect(extractRemoteZipFirstEntry('https://example.com/al.vsix', CANDIDATES))
+            .rejects.toThrow(`Entry not found in ZIP. Probed: ${FLAT}, ${LEGACY}`);
+    });
+
+    it('does not fall back to a basename match', async () => {
+        const zip = buildVsix({ 'somewhere/else/Microsoft.Dynamics.Nav.CodeAnalysis.dll': 'stray' });
+        serveZip(zip);
+
+        await expect(extractRemoteZipFirstEntry('https://example.com/al.vsix', CANDIDATES))
+            .rejects.toThrow('Entry not found in ZIP. Probed:');
     });
 });

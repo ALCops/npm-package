@@ -15,12 +15,7 @@ export function extractZipEntryFromBuffer(
     entryPath: string,
     logger: Logger = nullLogger,
 ): Buffer {
-    const eocd = readEOCDFromBuffer(zipBuffer);
-    const cdBytes = zipBuffer.subarray(
-        eocd.centralDirectoryOffset,
-        eocd.centralDirectoryOffset + eocd.centralDirectorySize,
-    );
-    const entries = parseZipCentralDirectory(cdBytes);
+    const entries = readCentralDirectoryFromBuffer(zipBuffer);
     logger.debug(`ZIP buffer: ${entries.length} entries, searching for '${entryPath}'`);
 
     // Try exact match first, then basename match
@@ -51,6 +46,38 @@ export function extractZipEntryFromBuffer(
  * List all entries in an in-memory ZIP buffer.
  */
 export function listZipEntries(zipBuffer: Buffer): ZipCentralEntry[] {
+    return readCentralDirectoryFromBuffer(zipBuffer);
+}
+
+/**
+ * Extract the first of several candidate entries from an in-memory ZIP buffer.
+ * The central directory is parsed once and the candidates are probed in order
+ * using an exact path match; the first hit wins.
+ * Returns the extracted buffer together with the entry path that matched.
+ */
+export function extractZipFirstEntryFromBuffer(
+    zipBuffer: Buffer,
+    entryPaths: readonly string[],
+    logger: Logger = nullLogger,
+): { buffer: Buffer; entryPath: string } {
+    const entries = readCentralDirectoryFromBuffer(zipBuffer);
+    logger.debug(`ZIP buffer: ${entries.length} entries, probing ${entryPaths.length} candidates`);
+
+    for (const candidate of entryPaths) {
+        const entry = entries.find((e) => e.fileName === candidate);
+        if (entry) {
+            logger.debug(`Candidate '${candidate}' matched: ${entry.uncompressedSize} bytes`);
+            return { buffer: extractEntryData(zipBuffer, entry), entryPath: candidate };
+        }
+        logger.debug(`Candidate '${candidate}' not present`);
+    }
+
+    throw new Error(`Entry not found in ZIP buffer. Probed: ${entryPaths.join(', ')}`);
+}
+
+// ── Internal helpers ──
+
+function readCentralDirectoryFromBuffer(zipBuffer: Buffer): ZipCentralEntry[] {
     const eocd = readEOCDFromBuffer(zipBuffer);
     const cdBytes = zipBuffer.subarray(
         eocd.centralDirectoryOffset,
@@ -58,8 +85,6 @@ export function listZipEntries(zipBuffer: Buffer): ZipCentralEntry[] {
     );
     return parseZipCentralDirectory(cdBytes);
 }
-
-// ── Internal helpers ──
 
 interface BufferEOCD {
     centralDirectoryOffset: number;
