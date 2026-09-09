@@ -36,7 +36,7 @@ jobs:
         run: npm test
 
       - name: Stamp version
-        run: npm version "${{ steps.gitversion.outputs.majorMinorPatch }}" --no-git-tag-version
+        run: npm version "${{ steps.gitversion.outputs.majorMinorPatch }}" --no-git-tag-version --allow-same-version
 
       - name: Bundle
         run: npm run bundle
