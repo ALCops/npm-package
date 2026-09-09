@@ -10,7 +10,7 @@ Automatically detect the Target Framework Moniker (TFM) for Business Central and
 
 - Detect the TFM from four different sources:
   - **BC artifact URL** (e.g. a sandbox or OnPrem artifact)
-  - **VS Marketplace** (the AL Language extension; both the AL 18+ flat `extension/bin/` and the legacy `extension/bin/Analyzers/` VSIX layouts are supported)
+  - **VS Marketplace** (the AL Language extension)
   - **NuGet DevTools** (Microsoft's AL development tools package)
   - **Local compiler path** (a directory containing the AL compiler DLLs)
 - **Download and extract** ALCops analyzer DLLs for a detected TFM
